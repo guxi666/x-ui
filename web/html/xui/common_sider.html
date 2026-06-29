@@ -2,6 +2,7 @@
 <a-menu-item key="{{ .base_path }}xui/">
     <a-icon type="dashboard"></a-icon>
     <span>系统状态</span>
+    <span class="menu-arrow">›</span>
 </a-menu-item>
 <a-menu-item key="{{ .base_path }}xui/inbounds">
     <a-icon type="user"></a-icon>
@@ -11,18 +12,14 @@
     <a-icon type="setting"></a-icon>
     <span>面板设置</span>
 </a-menu-item>
-<!--<a-menu-item key="{{ .base_path }}xui/clients">-->
-<!--    <a-icon type="laptop"></a-icon>-->
-<!--    <span>客户端</span>-->
-<!--</a-menu-item>-->
 <a-sub-menu>
     <template slot="title">
         <a-icon type="link"></a-icon>
         <span>其他</span>
     </template>
-    <a-menu-item key="https://github.com/vaxilu/x-ui/">
+    <a-menu-item key="https://github.com/guxi666/x-ui/">
         <a-icon type="github"></a-icon>
-        <span>Github</span>
+        <span>GitHub</span>
     </a-menu-item>
 </a-sub-menu>
 <a-menu-item key="{{ .base_path }}logout">
@@ -31,27 +28,88 @@
 </a-menu-item>
 {{end}}
 
+{{define "commonHeader"}}
+<div class="page-header">
+    <div class="page-header__meta">
+        <div class="page-title">{{ .title }}</div>
+        <div class="page-subtitle">[[ pageHeader.subtitle ]]</div>
+    </div>
+    <div class="page-toolbar">
+        <a-button v-if="pageHeader.showRefresh" class="glass-button" icon="sync" @click="refreshPageHeader">刷新</a-button>
+        <div class="status-pill"
+             :class="{
+                'status-pill--warn': pageHeader.statusTone === 'warn',
+                'status-pill--danger': pageHeader.statusTone === 'danger'
+             }">
+            [[ pageHeader.statusText ]]
+        </div>
+        <div class="user-chip">
+            <span class="user-chip__avatar">[[ currentUserInitial ]]</span>
+            <div>
+                <strong>{{ .current_user }}</strong>
+                <span>超级管理员</span>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
 
 {{define "commonSider"}}
 <a-layout-sider id="sider" collapsible breakpoint="md" collapsed-width="0">
-    <a-menu theme="dark" mode="inline" :selected-keys="['{{ .request_uri }}']"
-            @click="({key}) => key.startsWith('http') ? window.open(key) : location.href = key">
-        {{template "menuItems" .}}
-    </a-menu>
+    <div class="xui-side-shell">
+        <div class="xui-brand">
+            <div class="xui-brand__mark">X</div>
+            <div class="xui-brand__text">
+                <div class="xui-brand__title">X-UI</div>
+                <div class="xui-brand__subtitle">Control Matrix</div>
+            </div>
+        </div>
+
+        <a-menu class="xui-menu"
+                theme="dark"
+                mode="inline"
+                :selected-keys="['{{ .request_uri }}']"
+                @click="({key}) => key.startsWith('http') ? window.open(key) : location.href = key">
+            {{template "menuItems" .}}
+        </a-menu>
+
+        <div class="xui-side-footer">
+            <div class="xui-side-footer__status">安全在线</div>
+            <div class="xui-side-footer__value">v{{ .cur_ver }}</div>
+            <div class="xui-side-footer__label">Panel Version</div>
+            <div class="xui-side-footer__meta">科技风控制台主题已启用</div>
+        </div>
+    </div>
 </a-layout-sider>
-<a-drawer id="sider-drawer" placement="left" :closable="false"
-          @close="siderDrawer.close()"
-          :visible="siderDrawer.visible" :wrap-style="{ padding: 0 }">
+
+<a-drawer id="sider-drawer"
+          placement="left"
+          :closable="false"
+          :visible="siderDrawer.visible"
+          :wrap-style="{ padding: 0 }"
+          @close="siderDrawer.close()">
     <div class="drawer-handle" @click="siderDrawer.change()" slot="handle">
         <a-icon :type="siderDrawer.visible ? 'close' : 'menu-fold'"></a-icon>
     </div>
-    <a-menu theme="light" mode="inline" :selected-keys="['{{ .request_uri }}']"
-        @click="({key}) => key.startsWith('http') ? window.open(key) : location.href = key">
-        {{template "menuItems" .}}
-    </a-menu>
-</a-drawer>
-<script>
+    <div class="xui-side-shell xui-side-shell--drawer">
+        <div class="xui-brand">
+            <div class="xui-brand__mark">X</div>
+            <div class="xui-brand__text">
+                <div class="xui-brand__title">X-UI</div>
+                <div class="xui-brand__subtitle">Control Matrix</div>
+            </div>
+        </div>
 
+        <a-menu theme="dark"
+                mode="inline"
+                :selected-keys="['{{ .request_uri }}']"
+                @click="({key}) => key.startsWith('http') ? window.open(key) : location.href = key">
+            {{template "menuItems" .}}
+        </a-menu>
+    </div>
+</a-drawer>
+
+<script>
     const siderDrawer = {
         visible: false,
         show() {
@@ -64,6 +122,5 @@
             this.visible = !this.visible;
         }
     };
-
 </script>
 {{end}}

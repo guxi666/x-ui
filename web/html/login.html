@@ -1,72 +1,80 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 {{template "head" .}}
-<style>
-
-    #app {
-        padding-top: 100px;
-    }
-
-    h1 {
-        text-align: center;
-        color: #fff;
-        margin: 20px 0 50px 0;
-    }
-
-    .ant-btn, .ant-input {
-        height: 50px;
-        border-radius: 30px;
-    }
-
-    .ant-input-affix-wrapper .ant-input-prefix {
-        left: 23px;
-    }
-
-    .ant-input-affix-wrapper .ant-input:not(:first-child) {
-        padding-left: 50px;
-    }
-
-</style>
 <body>
-<a-layout id="app" v-cloak>
-    <transition name="list" appear>
-        <a-layout-content>
-            <a-row type="flex" justify="center">
-                <a-col :xs="22" :sm="20" :md="16" :lg="12" :xl="8">
-                    <h1>{{ .title }}</h1>
-                </a-col>
-            </a-row>
-            <a-row type="flex" justify="center">
-                <a-col :xs="22" :sm="20" :md="16" :lg="12" :xl="8">
-                    <a-form>
-                        <a-form-item>
-                            <a-input v-model.trim="user.username" placeholder='{{ i18n "username" }}'
-                                     @keydown.enter.native="login" autofocus>
-                                <a-icon slot="prefix" type="user" style="color: rgba(0,0,0,.25)"/>
-                            </a-input>
-                        </a-form-item>
-                        <a-form-item>
-                            <a-input type="password" v-model.trim="user.password"
-                                     placeholder='{{ i18n "password" }}' @keydown.enter.native="login">
-                                <a-icon slot="prefix" type="lock" style="color: rgba(0,0,0,.25)"/>
-                            </a-input>
-                        </a-form-item>
-                        <a-form-item>
-                            <a-button block @click="login" :loading="loading">{{ i18n "login" }}</a-button>
-                        </a-form-item>
-                    </a-form>
-                </a-col>
-            </a-row>
-        </a-layout-content>
-    </transition>
+<a-layout id="app" v-cloak class="login-screen">
+    <a-layout-content class="login-screen__content">
+        <a-row type="flex" align="middle" :gutter="[48, 32]" style="width: 100%">
+            <a-col :xs="24" :lg="13">
+                <div class="login-copy">
+                    <div class="login-copy__eyebrow">X-UI Control Matrix</div>
+                    <div class="login-copy__title">深色科技风控制台，<br>从登录开始统一气质。</div>
+                    <div class="login-copy__desc">
+                        这一版登录页和后台会统一成深色霓虹蓝视觉，强调状态感、层次感和信息密度。
+                        进入面板后，系统状态、入站列表和设置页都会沿用同一套界面语言。
+                    </div>
+                    <div class="login-copy__badges">
+                        <span class="login-copy__badge">实时状态监控</span>
+                        <span class="login-copy__badge">统一后台主题</span>
+                        <span class="login-copy__badge">更清晰的操作反馈</span>
+                    </div>
+                </div>
+            </a-col>
+
+            <a-col :xs="24" :lg="11">
+                <div class="login-panel">
+                    <div class="login-panel__glow"></div>
+                    <div class="login-form-card">
+                        <div class="login-form-card__brand">
+                            <div class="xui-brand__mark">X</div>
+                            <div class="xui-brand__text">
+                                <div class="xui-brand__title">X-UI</div>
+                                <div class="xui-brand__subtitle">Secure Access Gateway</div>
+                            </div>
+                        </div>
+
+                        <div class="login-form-card__title">管理员登录</div>
+                        <div class="login-form-card__desc">
+                            输入账号和密码进入控制台。登录成功后会自动跳转到新的仪表盘首页。
+                        </div>
+
+                        <a-form>
+                            <a-form-item>
+                                <a-input v-model.trim="user.username"
+                                         placeholder='{{ i18n "username" }}'
+                                         @keydown.enter.native="login"
+                                         autofocus>
+                                    <a-icon slot="prefix" type="user"/>
+                                </a-input>
+                            </a-form-item>
+                            <a-form-item>
+                                <a-input type="password"
+                                         v-model.trim="user.password"
+                                         placeholder='{{ i18n "password" }}'
+                                         @keydown.enter.native="login">
+                                    <a-icon slot="prefix" type="lock"/>
+                                </a-input>
+                            </a-form-item>
+                            <a-form-item>
+                                <a-button block
+                                          type="primary"
+                                          class="login-submit"
+                                          @click="login"
+                                          :loading="loading">
+                                    {{ i18n "login" }}
+                                </a-button>
+                            </a-form-item>
+                        </a-form>
+
+                        <div class="login-footnote">当前实例已启用统一暗色主题和增强信息布局。</div>
+                    </div>
+                </div>
+            </a-col>
+        </a-row>
+    </a-layout-content>
 </a-layout>
 {{template "js" .}}
 <script>
-    const leftColor = RandomUtil.randomIntRange(0x222222, 0xFFFFFF / 2).toString(16);
-    const rightColor = RandomUtil.randomIntRange(0xFFFFFF / 2, 0xDDDDDD).toString(16);
-    const deg = RandomUtil.randomIntRange(0, 360);
-    const background = `linear-gradient(${deg}deg, #${leftColor} 10%, #${rightColor} 100%)`;
-    document.querySelector('#app').style.background = background;
     const app = new Vue({
         delimiters: ['[[', ']]'],
         el: '#app',

@@ -10,16 +10,19 @@ import (
 	"github.com/shirou/gopsutil/host"
 	"github.com/shirou/gopsutil/load"
 	"github.com/shirou/gopsutil/mem"
-	"github.com/shirou/gopsutil/net"
 	"io"
 	"io/fs"
+	stdnet "net"
 	"net/http"
 	"os"
 	"runtime"
+	"strings"
 	"time"
 	"x-ui/logger"
 	"x-ui/util/sys"
 	"x-ui/xray"
+
+	gopsnet "github.com/shirou/gopsutil/net"
 )
 
 type ProcessState string
@@ -33,6 +36,16 @@ const (
 type Status struct {
 	T   time.Time `json:"-"`
 	Cpu float64   `json:"cpu"`
+	System struct {
+		Hostname      string `json:"hostname"`
+		Platform      string `json:"platform"`
+		Arch          string `json:"arch"`
+		KernelVersion string `json:"kernelVersion"`
+		BootTime      string `json:"bootTime"`
+		IPv4          string `json:"ipv4"`
+		IPv6          string `json:"ipv6"`
+		PanelPort     int    `json:"panelPort"`
+	} `json:"system"`
 	Mem struct {
 		Current uint64 `json:"current"`
 		Total   uint64 `json:"total"`
@@ -69,7 +82,8 @@ type Release struct {
 }
 
 type ServerService struct {
-	xrayService XrayService
+	xrayService    XrayService
+	settingService SettingService
 }
 
 func (s *ServerService) GetStatus(lastStatus *Status) *Status {
@@ -91,6 +105,30 @@ func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 	} else {
 		status.Uptime = upTime
 	}
+
+	hostInfo, err := host.Info()
+	if err != nil {
+		logger.Warning("get host info failed:", err)
+	} else {
+		status.System.Hostname = hostInfo.Hostname
+		status.System.Platform = strings.TrimSpace(fmt.Sprintf("%s %s", hostInfo.Platform, hostInfo.PlatformVersion))
+		status.System.Arch = hostInfo.KernelArch
+		if status.System.Arch == "" {
+			status.System.Arch = runtime.GOARCH
+		}
+		status.System.KernelVersion = hostInfo.KernelVersion
+		status.System.BootTime = time.Unix(int64(hostInfo.BootTime), 0).Format("2006-01-02 15:04:05")
+	}
+
+	if status.System.Platform == "" {
+		status.System.Platform = runtime.GOOS
+	}
+
+	if port, err := s.settingService.GetPort(); err == nil {
+		status.System.PanelPort = port
+	}
+
+	status.System.IPv4, status.System.IPv6 = getPrimaryIPs()
 
 	memInfo, err := mem.VirtualMemory()
 	if err != nil {
@@ -123,7 +161,7 @@ func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 		status.Loads = []float64{avgState.Load1, avgState.Load5, avgState.Load15}
 	}
 
-	ioStats, err := net.IOCounters(false)
+	ioStats, err := gopsnet.IOCounters(false)
 	if err != nil {
 		logger.Warning("get io counters failed:", err)
 	} else if len(ioStats) > 0 {
@@ -168,6 +206,32 @@ func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 	status.Xray.Version = s.xrayService.GetXrayVersion()
 
 	return status
+}
+
+func getPrimaryIPs() (string, string) {
+	ipv4 := ""
+	ipv6 := ""
+	addrs, err := stdnet.InterfaceAddrs()
+	if err != nil {
+		return ipv4, ipv6
+	}
+	for _, addr := range addrs {
+		ipNet, ok := addr.(*stdnet.IPNet)
+		if !ok || ipNet.IP == nil || ipNet.IP.IsLoopback() {
+			continue
+		}
+		if ip := ipNet.IP.To4(); ip != nil && ipv4 == "" {
+			ipv4 = ip.String()
+			continue
+		}
+		if ipNet.IP.To16() != nil && ipv6 == "" {
+			ipv6 = ipNet.IP.String()
+		}
+		if ipv4 != "" && ipv6 != "" {
+			break
+		}
+	}
+	return ipv4, ipv6
 }
 
 func (s *ServerService) GetXrayVersions() ([]string, error) {

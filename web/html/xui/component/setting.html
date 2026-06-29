@@ -1,10 +1,10 @@
 {{define "component/settingListItem"}}
-<a-list-item style="padding: 20px">
+<a-list-item class="settings-list-item">
     <a-row>
-        <a-col :lg="24" :xl="12">
+        <a-col :lg="24" :xl="12" class="settings-list-item__meta">
             <a-list-item-meta :title="title" :description="desc"/>
         </a-col>
-        <a-col :lg="24" :xl="12">
+        <a-col :lg="24" :xl="12" class="settings-list-item__control">
             <template v-if="type === 'text'">
                 <a-input :value="value" @input="$emit('input', $event.target.value)"></a-input>
             </template>

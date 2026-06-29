@@ -1,91 +1,112 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 {{template "head" .}}
-<style>
-    @media (min-width: 769px) {
-        .ant-layout-content {
-            margin: 24px 16px;
-        }
-    }
-
-    .ant-col-sm-24 {
-        margin-top: 10px;
-    }
-
-    .ant-tabs-bar {
-        margin: 0;
-    }
-
-    .ant-list-item {
-        display: block;
-    }
-
-    .ant-tabs-top-bar {
-        background: white;
-    }
-</style>
 <body>
 <a-layout id="app" v-cloak>
     {{ template "commonSider" . }}
     <a-layout id="content-layout">
-        <a-layout-content>
-            <a-spin :spinning="spinning" :delay="500" tip="loading">
-                <a-space direction="vertical">
-                    <a-space direction="horizontal">
-                        <a-button type="primary" :disabled="saveBtnDisable" @click="updateAllSetting">保存配置</a-button>
-                        <a-button type="danger" :disabled="!saveBtnDisable" @click="restartPanel">重启面板</a-button>
-                    </a-space>
-                    <a-tabs default-active-key="1">
-                        <a-tab-pane key="1" tab="面板配置">
-                            <a-list item-layout="horizontal" style="background: white">
-                                <setting-list-item type="text" title="面板监听 IP" desc="默认留空监听所有 IP，重启面板生效" v-model="allSetting.webListen"></setting-list-item>
-                                <setting-list-item type="number" title="面板监听端口" desc="重启面板生效" v-model.number="allSetting.webPort"></setting-list-item>
-                                <setting-list-item type="text" title="面板证书公钥文件路径" desc="填写一个 '/' 开头的绝对路径，重启面板生效" v-model="allSetting.webCertFile"></setting-list-item>
-                                <setting-list-item type="text" title="面板证书密钥文件路径" desc="填写一个 '/' 开头的绝对路径，重启面板生效" v-model="allSetting.webKeyFile"></setting-list-item>
-                                <setting-list-item type="text" title="面板 url 根路径" desc="必须以 '/' 开头，以 '/' 结尾，重启面板生效" v-model="allSetting.webBasePath"></setting-list-item>
-                            </a-list>
-                        </a-tab-pane>
-                        <a-tab-pane key="2" tab="用户设置">
-                            <a-form style="background: white; padding: 20px">
-                                <a-form-item label="原用户名">
-                                    <a-input v-model="user.oldUsername" style="max-width: 300px"></a-input>
-                                </a-form-item>
-                                <a-form-item label="原密码">
-                                    <a-input type="password" v-model="user.oldPassword"
-                                             style="max-width: 300px"></a-input>
-                                </a-form-item>
-                                <a-form-item label="新用户名">
-                                    <a-input v-model="user.newUsername" style="max-width: 300px"></a-input>
-                                </a-form-item>
-                                <a-form-item label="新密码">
-                                    <a-input type="password" v-model="user.newPassword"
-                                             style="max-width: 300px"></a-input>
-                                </a-form-item>
-                                <a-form-item>
-                                    <a-button type="primary" @click="updateUser">修改</a-button>
-                                </a-form-item>
-                            </a-form>
-                        </a-tab-pane>
-                        <a-tab-pane key="3" tab="xray 相关设置">
-                            <a-list item-layout="horizontal" style="background: white">
-                                <setting-list-item type="textarea" title="xray 配置模版" desc="以该模版为基础生成最终的 xray 配置文件，重启面板生效" v-model="allSetting.xrayTemplateConfig"></setting-list-item>
-                            </a-list>
-                        </a-tab-pane>
-                        <a-tab-pane key="4" tab="TG提醒相关设置">
-                            <a-list item-layout="horizontal" style="background: white">
-                                <setting-list-item type="switch" title="启用电报机器人" desc="重启面板生效"  v-model="allSetting.tgBotEnable"></setting-list-item>
-                                <setting-list-item type="text" title="电报机器人TOKEN" desc="重启面板生效"  v-model="allSetting.tgBotToken"></setting-list-item>
-                                <setting-list-item type="number" title="电报机器人ChatId" desc="重启面板生效"  v-model.number="allSetting.tgBotChatId"></setting-list-item>
-                                <setting-list-item type="text" title="电报机器人通知时间" desc="采用Crontab定时格式,重启面板生效"  v-model="allSetting.tgRunTime"></setting-list-item>
-                            </a-list>
-                        </a-tab-pane>
-                        <a-tab-pane key="5" tab="其他设置">
-                            <a-list item-layout="horizontal" style="background: white">
-                                <setting-list-item type="text" title="时区" desc="定时任务按照该时区的时间运行，重启面板生效" v-model="allSetting.timeLocation"></setting-list-item>
-                            </a-list>
-                        </a-tab-pane>
-                    </a-tabs>
-                </a-space>
+        <a-layout-content class="page-content">
+            <a-spin :spinning="spinning" :delay="500" tip="加载中">
+                <div class="page-shell">
+                    {{ template "commonHeader" . }}
+
+                    <transition name="list" appear>
+                        <section class="summary-grid">
+                            <div class="summary-card glass-card">
+                                <div class="summary-card__label">面板监听端口</div>
+                                <div class="summary-card__value">[[ allSetting.webPort || 0 ]]</div>
+                                <div class="summary-card__hint">修改后需要重启面板生效</div>
+                            </div>
+                            <div class="summary-card glass-card">
+                                <div class="summary-card__label">面板根路径</div>
+                                <div class="summary-card__value">[[ allSetting.webBasePath || '/' ]]</div>
+                                <div class="summary-card__hint">用于反代和多实例入口区分</div>
+                            </div>
+                            <div class="summary-card glass-card">
+                                <div class="summary-card__label">时区</div>
+                                <div class="summary-card__value">[[ allSetting.timeLocation || '-' ]]</div>
+                                <div class="summary-card__hint">定时任务和提醒会按这里运行</div>
+                            </div>
+                            <div class="summary-card glass-card">
+                                <div class="summary-card__label">Telegram 提醒</div>
+                                <div class="summary-card__value">[[ allSetting.tgBotEnable ? '开启' : '关闭' ]]</div>
+                                <div class="summary-card__hint">到期和流量提醒状态</div>
+                            </div>
+                        </section>
+                    </transition>
+
+                    <transition name="list" appear>
+                        <section class="settings-action-bar glass-card">
+                            <div class="settings-action-bar__copy">
+                                集中维护面板监听、用户信息、Xray 模板和 Telegram 提醒。当前状态会实时提示是否存在未保存改动。
+                            </div>
+                            <div class="panel-actions">
+                                <a-button type="primary" :disabled="saveBtnDisable" @click="updateAllSetting">保存配置</a-button>
+                                <a-button type="danger" :disabled="!saveBtnDisable" @click="restartPanel">重启面板</a-button>
+                            </div>
+                        </section>
+                    </transition>
+
+                    <transition name="list" appear>
+                        <section class="settings-tabs-panel glass-card">
+                            <a-tabs default-active-key="1">
+                                <a-tab-pane key="1" tab="面板配置">
+                                    <a-list item-layout="horizontal">
+                                        <setting-list-item type="text" title="面板监听 IP" desc="默认留空表示监听所有地址，重启后生效" v-model="allSetting.webListen"></setting-list-item>
+                                        <setting-list-item type="number" title="面板监听端口" desc="修改后需要重启面板生效" v-model.number="allSetting.webPort"></setting-list-item>
+                                        <setting-list-item type="text" title="面板证书公钥路径" desc="填写以 / 开头的绝对路径，启用 HTTPS 时使用" v-model="allSetting.webCertFile"></setting-list-item>
+                                        <setting-list-item type="text" title="面板证书私钥路径" desc="填写以 / 开头的绝对路径，启用 HTTPS 时使用" v-model="allSetting.webKeyFile"></setting-list-item>
+                                        <setting-list-item type="text" title="面板 URL 根路径" desc="必须以 / 开头并以 / 结尾，反代场景尤其要注意" v-model="allSetting.webBasePath"></setting-list-item>
+                                    </a-list>
+                                </a-tab-pane>
+
+                                <a-tab-pane key="2" tab="用户设置">
+                                    <a-form>
+                                        <a-form-item label="原用户名">
+                                            <a-input v-model="user.oldUsername" style="max-width: 360px"></a-input>
+                                        </a-form-item>
+                                        <a-form-item label="原密码">
+                                            <a-input type="password" v-model="user.oldPassword" style="max-width: 360px"></a-input>
+                                        </a-form-item>
+                                        <a-form-item label="新用户名">
+                                            <a-input v-model="user.newUsername" style="max-width: 360px"></a-input>
+                                        </a-form-item>
+                                        <a-form-item label="新密码">
+                                            <a-input type="password" v-model="user.newPassword" style="max-width: 360px"></a-input>
+                                        </a-form-item>
+                                        <a-form-item>
+                                            <a-button type="primary" @click="updateUser">更新登录信息</a-button>
+                                        </a-form-item>
+                                    </a-form>
+                                </a-tab-pane>
+
+                                <a-tab-pane key="3" tab="Xray 相关设置">
+                                    <a-list item-layout="horizontal">
+                                        <setting-list-item type="textarea"
+                                                           title="Xray 配置模板"
+                                                           desc="面板会以这个模板为基础生成最终 Xray 配置文件，修改后重启面板生效"
+                                                           v-model="allSetting.xrayTemplateConfig"></setting-list-item>
+                                    </a-list>
+                                </a-tab-pane>
+
+                                <a-tab-pane key="4" tab="Telegram 提醒设置">
+                                    <a-list item-layout="horizontal">
+                                        <setting-list-item type="switch" title="启用 Telegram 机器人" desc="开启后，重启面板生效" v-model="allSetting.tgBotEnable"></setting-list-item>
+                                        <setting-list-item type="text" title="机器人 Token" desc="填写 BotFather 生成的 Token" v-model="allSetting.tgBotToken"></setting-list-item>
+                                        <setting-list-item type="number" title="Chat ID" desc="填写接收消息的目标会话 ID" v-model.number="allSetting.tgBotChatId"></setting-list-item>
+                                        <setting-list-item type="text" title="通知时间表达式" desc="使用 Crontab 格式，例如 @daily 或标准 cron 表达式" v-model="allSetting.tgRunTime"></setting-list-item>
+                                    </a-list>
+                                </a-tab-pane>
+
+                                <a-tab-pane key="5" tab="其他设置">
+                                    <a-list item-layout="horizontal">
+                                        <setting-list-item type="text" title="时区" desc="定时任务、提醒和日志时间都会按这里运行" v-model="allSetting.timeLocation"></setting-list-item>
+                                    </a-list>
+                                </a-tab-pane>
+                            </a-tabs>
+                        </section>
+                    </transition>
+                </div>
             </a-spin>
         </a-layout-content>
     </a-layout>
@@ -93,7 +114,6 @@
 {{template "js" .}}
 {{template "component/setting"}}
 <script>
-
     const app = new Vue({
         delimiters: ['[[', ']]'],
         el: '#app',
@@ -104,10 +124,34 @@
             allSetting: new AllSetting(),
             saveBtnDisable: true,
             user: {},
+            currentUser: currentUser || 'admin',
+            pageHeader: {
+                subtitle: '维护面板监听、登录信息、模板配置和提醒策略',
+                showRefresh: true,
+                statusText: '等待数据同步',
+                statusTone: 'warn',
+            },
+        },
+        computed: {
+            currentUserInitial() {
+                return (this.currentUser || 'A').trim().charAt(0).toUpperCase();
+            },
         },
         methods: {
             loading(spinning = true) {
                 this.spinning = spinning;
+            },
+            refreshPageHeader() {
+                this.getAllSetting();
+            },
+            syncHeaderStatus() {
+                if (this.saveBtnDisable) {
+                    this.pageHeader.statusText = '配置已同步';
+                    this.pageHeader.statusTone = 'ok';
+                } else {
+                    this.pageHeader.statusText = '有未保存更改';
+                    this.pageHeader.statusTone = 'warn';
+                }
             },
             async getAllSetting() {
                 this.loading(true);
@@ -117,6 +161,7 @@
                     this.oldAllSetting = new AllSetting(msg.obj);
                     this.allSetting = new AllSetting(msg.obj);
                     this.saveBtnDisable = true;
+                    this.syncHeaderStatus();
                 }
             },
             async updateAllSetting() {
@@ -139,7 +184,7 @@
                 await new Promise(resolve => {
                     this.$confirm({
                         title: '重启面板',
-                        content: '确定要重启面板吗？点击确定将于 3 秒后重启，若重启后无法访问面板，请前往服务器查看面板日志信息',
+                        content: '确定要重启面板吗？确认后将在 3 秒后重启，如果重启后无法访问，请到服务器查看日志。',
                         okText: '确定',
                         cancelText: '取消',
                         onOk: () => resolve(),
@@ -160,10 +205,10 @@
             while (true) {
                 await PromiseUtil.sleep(1000);
                 this.saveBtnDisable = this.oldAllSetting.equals(this.allSetting);
+                this.syncHeaderStatus();
             }
         },
     });
-
 </script>
 </body>
 </html>

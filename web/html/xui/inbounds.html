@@ -1,174 +1,188 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 {{template "head" .}}
-<style>
-    @media (min-width: 769px) {
-        .ant-layout-content {
-            margin: 24px 16px;
-        }
-    }
-
-    .ant-col-sm-24 {
-        margin-top: 10px;
-    }
-</style>
 <body>
 <a-layout id="app" v-cloak>
     {{ template "commonSider" . }}
     <a-layout id="content-layout">
-        <a-layout-content>
-            <a-spin :spinning="spinning" :delay="500" tip="loading">
-                <transition name="list" appear>
-                    <a-tag v-if="false" color="red" style="margin-bottom: 10px">
-                        Please go to the panel settings as soon as possible to modify the username and password, otherwise there may be a risk of leaking account information
-                    </a-tag>
-                </transition>
-                <transition name="list" appear>
-                    <a-card hoverable style="margin-bottom: 20px;">
-                        <a-row>
-                            <a-col :xs="24" :sm="24" :lg="12">
-                                总上传 / 下载：
-                                <a-tag color="green">[[ sizeFormat(total.up) ]] / [[ sizeFormat(total.down) ]]</a-tag>
-                            </a-col>
-                            <a-col :xs="24" :sm="24" :lg="12">
-                                总用量：
-                                <a-tag color="green">[[ sizeFormat(total.up + total.down) ]]</a-tag>
-                            </a-col>
-                            <a-col :xs="24" :sm="24" :lg="12">
-                                入站数量：
-                                <a-tag color="green">[[ dbInbounds.length ]]</a-tag>
-                            </a-col>
-                        </a-row>
-                    </a-card>
-                </transition>
-                <transition name="list" appear>
-                    <a-card hoverable>
-                        <div slot="title">
-                            <a-button type="primary" icon="plus" @click="openAddInbound"></a-button>
-                        </div>
-<!--                        <a-input v-model="searchKey" placeholder="搜索" autofocus style="max-width: 300px"></a-input>-->
-                        <a-table :columns="columns" :row-key="dbInbound => dbInbound.id"
-                                 :data-source="dbInbounds"
-                                 :loading="spinning" :scroll="{ x: 1500 }"
-                                 :pagination="false"
-                                 style="margin-top: 20px"
-                                 @change="() => getDBInbounds()">
-                            <template slot="action" slot-scope="text, dbInbound">
-                                <a-dropdown :trigger="['click']">
-                                    <a @click="e => e.preventDefault()">操作</a>
-                                    <a-menu slot="overlay" @click="a => clickAction(a, dbInbound)">
-                                        <a-menu-item v-if="dbInbound.hasLink()" key="qrcode">
-                                            <a-icon type="qrcode"></a-icon>二维码
-                                        </a-menu-item>
-                                        <a-menu-item key="edit">
-                                            <a-icon type="edit"></a-icon>编辑
-                                        </a-menu-item>
-                                        <a-menu-item key="resetTraffic">
-                                            <a-icon type="retweet"></a-icon>重置流量
-                                        </a-menu-item>
-                                        <a-menu-item key="delete">
-                                            <span style="color: #FF4D4F">
-                                                <a-icon type="delete"></a-icon>删除
-                                            </span>
-                                        </a-menu-item>
-                                    </a-menu>
-                                </a-dropdown>
-                            </template>
-                            <template slot="protocol" slot-scope="text, dbInbound">
-                                <a-tag color="blue">[[ dbInbound.protocol ]]</a-tag>
-                            </template>
-                            <template slot="traffic" slot-scope="text, dbInbound">
-                                <a-tag color="blue">[[ sizeFormat(dbInbound.up) ]] / [[ sizeFormat(dbInbound.down) ]]</a-tag>
-                                <template v-if="dbInbound.total > 0">
-                                    <a-tag v-if="dbInbound.up + dbInbound.down < dbInbound.total" color="cyan">[[ sizeFormat(dbInbound.total) ]]</a-tag>
-                                    <a-tag v-else color="red">[[ sizeFormat(dbInbound.total) ]]</a-tag>
+        <a-layout-content class="page-content">
+            <a-spin :spinning="spinning" :delay="500" tip="加载中">
+                <div class="page-shell">
+                    {{ template "commonHeader" . }}
+
+                    <transition name="list" appear>
+                        <section class="summary-grid">
+                            <div class="summary-card glass-card">
+                                <div class="summary-card__label">总上传</div>
+                                <div class="summary-card__value">[[ sizeFormat(total.up) ]]</div>
+                                <div class="summary-card__hint">所有入站累计上传流量</div>
+                            </div>
+                            <div class="summary-card glass-card">
+                                <div class="summary-card__label">总下载</div>
+                                <div class="summary-card__value">[[ sizeFormat(total.down) ]]</div>
+                                <div class="summary-card__hint">所有入站累计下载流量</div>
+                            </div>
+                            <div class="summary-card glass-card">
+                                <div class="summary-card__label">总用量</div>
+                                <div class="summary-card__value">[[ sizeFormat(total.up + total.down) ]]</div>
+                                <div class="summary-card__hint">上传与下载合计</div>
+                            </div>
+                            <div class="summary-card glass-card">
+                                <div class="summary-card__label">入站数量</div>
+                                <div class="summary-card__value">[[ dbInbounds.length ]]</div>
+                                <div class="summary-card__hint">当前面板已登记的全部入站</div>
+                            </div>
+                        </section>
+                    </transition>
+
+                    <transition name="list" appear>
+                        <section class="table-panel glass-card">
+                            <div class="table-toolbar">
+                                <div>
+                                    <div class="section-title">
+                                        <span>入站管理</span>
+                                        <span class="section-title__meta">统一查看协议、端口、流量、到期时间与开关状态</span>
+                                    </div>
+                                </div>
+                                <div class="panel-actions">
+                                    <a-input class="table-toolbar__search"
+                                             v-model.trim="searchKey"
+                                             placeholder="搜索备注、端口、协议或 ID">
+                                        <a-icon slot="prefix" type="search"></a-icon>
+                                    </a-input>
+                                    <a-button type="primary" icon="plus" @click="openAddInbound">新增入站</a-button>
+                                </div>
+                            </div>
+
+                            <a-table :columns="columns"
+                                     :row-key="dbInbound => dbInbound.id"
+                                     :data-source="filteredDbInbounds"
+                                     :loading="spinning"
+                                     :scroll="{ x: 1500 }"
+                                     :pagination="{ pageSize: 10, showSizeChanger: false }"
+                                     @change="() => getDBInbounds()">
+                                <template slot="action" slot-scope="text, dbInbound">
+                                    <a-dropdown :trigger="['click']">
+                                        <a @click="e => e.preventDefault()">操作</a>
+                                        <a-menu slot="overlay" @click="a => clickAction(a, dbInbound)">
+                                            <a-menu-item v-if="dbInbound.hasLink()" key="qrcode">
+                                                <a-icon type="qrcode"></a-icon>二维码
+                                            </a-menu-item>
+                                            <a-menu-item key="edit">
+                                                <a-icon type="edit"></a-icon>编辑
+                                            </a-menu-item>
+                                            <a-menu-item key="resetTraffic">
+                                                <a-icon type="retweet"></a-icon>重置流量
+                                            </a-menu-item>
+                                            <a-menu-item key="delete">
+                                                <span style="color: #ff90a4">
+                                                    <a-icon type="delete"></a-icon>删除
+                                                </span>
+                                            </a-menu-item>
+                                        </a-menu>
+                                    </a-dropdown>
                                 </template>
-                                <a-tag v-else color="green">无限制</a-tag>
-                            </template>
-                            <template slot="settings" slot-scope="text, dbInbound">
-                                <a-button type="link" @click="showInfo(dbInbound)">查看</a-button>
-                            </template>
-                            <template slot="stream" slot-scope="text, dbInbound, index">
-                                <template v-if="dbInbound.isVMess || dbInbound.isVLess || dbInbound.isTrojan || dbInbound.isSS">
-                                    <a-tag color="green">[[ inbounds[index].stream.network ]]</a-tag>
-                                    <a-tag v-if="inbounds[index].stream.isTls" color="blue">tls</a-tag>
-                                    <a-tag v-if="inbounds[index].stream.isXTls" color="blue">xtls</a-tag>
+
+                                <template slot="protocol" slot-scope="text, dbInbound">
+                                    <a-tag color="blue">[[ dbInbound.protocol ]]</a-tag>
                                 </template>
-                                <template v-else>无</template>
-                            </template>
-                            <template slot="enable" slot-scope="text, dbInbound">
-                                <a-switch v-model="dbInbound.enable" @change="switchEnable(dbInbound)"></a-switch>
-                            </template>
-                            <template slot="expiryTime" slot-scope="text, dbInbound">
-                                <template v-if="dbInbound.expiryTime > 0">
-                                    <a-tag v-if="dbInbound.isExpiry" color="red">
-                                        [[ DateUtil.formatMillis(dbInbound.expiryTime) ]]
-                                    </a-tag>
-                                    <a-tag v-else color="blue">
-                                        [[ DateUtil.formatMillis(dbInbound.expiryTime) ]]
-                                    </a-tag>
+
+                                <template slot="traffic" slot-scope="text, dbInbound">
+                                    <a-tag color="blue">[[ sizeFormat(dbInbound.up) ]] / [[ sizeFormat(dbInbound.down) ]]</a-tag>
+                                    <template v-if="dbInbound.total > 0">
+                                        <a-tag v-if="dbInbound.up + dbInbound.down < dbInbound.total" color="cyan">[[ sizeFormat(dbInbound.total) ]]</a-tag>
+                                        <a-tag v-else color="red">[[ sizeFormat(dbInbound.total) ]]</a-tag>
+                                    </template>
+                                    <a-tag v-else color="green">无限制</a-tag>
                                 </template>
-                                <a-tag v-else color="green">无限期</a-tag>
-                            </template>
-                        </a-table>
-                    </a-card>
-                </transition>
+
+                                <template slot="settings" slot-scope="text, dbInbound">
+                                    <a-button type="link" @click="showInfo(dbInbound)">查看</a-button>
+                                </template>
+
+                                <template slot="stream" slot-scope="text, dbInbound, index">
+                                    <template v-if="dbInbound.isVMess || dbInbound.isVLess || dbInbound.isTrojan || dbInbound.isSS">
+                                        <a-tag color="green">[[ inbounds[index].stream.network ]]</a-tag>
+                                        <a-tag v-if="inbounds[index].stream.isTls" color="blue">tls</a-tag>
+                                        <a-tag v-if="inbounds[index].stream.isXTls" color="purple">xtls</a-tag>
+                                    </template>
+                                    <template v-else>无</template>
+                                </template>
+
+                                <template slot="enable" slot-scope="text, dbInbound">
+                                    <a-switch v-model="dbInbound.enable" @change="switchEnable(dbInbound)"></a-switch>
+                                </template>
+
+                                <template slot="expiryTime" slot-scope="text, dbInbound">
+                                    <template v-if="dbInbound.expiryTime > 0">
+                                        <a-tag v-if="dbInbound.isExpiry" color="red">
+                                            [[ DateUtil.formatMillis(dbInbound.expiryTime) ]]
+                                        </a-tag>
+                                        <a-tag v-else color="blue">
+                                            [[ DateUtil.formatMillis(dbInbound.expiryTime) ]]
+                                        </a-tag>
+                                    </template>
+                                    <a-tag v-else color="green">无限期</a-tag>
+                                </template>
+                            </a-table>
+                        </section>
+                    </transition>
+                </div>
             </a-spin>
         </a-layout-content>
     </a-layout>
 </a-layout>
 {{template "js" .}}
 <script>
-
     const columns = [{
         title: "操作",
         align: 'center',
-        width: 30,
+        width: 70,
         scopedSlots: { customRender: 'action' },
     }, {
         title: "启用",
         align: 'center',
-        width: 40,
+        width: 60,
         scopedSlots: { customRender: 'enable' },
     }, {
-        title: "id",
+        title: "ID",
         align: 'center',
         dataIndex: "id",
-        width: 30,
+        width: 60,
     }, {
         title: "备注",
         align: 'center',
-        width: 100,
+        width: 160,
         dataIndex: "remark",
     }, {
         title: "协议",
         align: 'center',
-        width: 60,
+        width: 90,
         scopedSlots: { customRender: 'protocol' },
     }, {
         title: "端口",
         align: 'center',
         dataIndex: "port",
-        width: 60,
+        width: 90,
     }, {
-        title: "流量↑|↓",
+        title: "流量 / 配额",
         align: 'center',
-        width: 150,
+        width: 210,
         scopedSlots: { customRender: 'traffic' },
     }, {
-        title: "详细信息",
+        title: "详情",
         align: 'center',
-        width: 40,
+        width: 90,
         scopedSlots: { customRender: 'settings' },
     }, {
         title: "传输配置",
         align: 'center',
-        width: 60,
+        width: 140,
         scopedSlots: { customRender: 'stream' },
     }, {
         title: "到期时间",
         align: 'center',
-        width: 80,
+        width: 180,
         scopedSlots: { customRender: 'expiryTime' },
     }];
 
@@ -181,10 +195,49 @@
             inbounds: [],
             dbInbounds: [],
             searchKey: '',
+            currentUser: currentUser || 'admin',
+            pageHeader: {
+                subtitle: '集中管理所有入站、流量、协议与开关状态',
+                showRefresh: true,
+                statusText: '等待数据同步',
+                statusTone: 'warn',
+            },
+        },
+        computed: {
+            currentUserInitial() {
+                return (this.currentUser || 'A').trim().charAt(0).toUpperCase();
+            },
+            filteredDbInbounds() {
+                if (ObjectUtil.isEmpty(this.searchKey)) {
+                    return this.dbInbounds;
+                }
+                return this.dbInbounds.filter(inbound => ObjectUtil.deepSearch(inbound, this.searchKey));
+            },
+            total() {
+                let down = 0;
+                let up = 0;
+                for (const inbound of this.dbInbounds) {
+                    down += inbound.down;
+                    up += inbound.up;
+                }
+                return {down, up};
+            },
         },
         methods: {
-            loading(spinning=true) {
+            loading(spinning = true) {
                 this.spinning = spinning;
+            },
+            refreshPageHeader() {
+                this.getDBInbounds();
+            },
+            syncHeaderStatus() {
+                if (this.dbInbounds.length > 0) {
+                    this.pageHeader.statusText = `共 ${this.dbInbounds.length} 个入站`;
+                    this.pageHeader.statusTone = 'ok';
+                } else {
+                    this.pageHeader.statusText = '暂无入站';
+                    this.pageHeader.statusTone = 'warn';
+                }
             },
             async getDBInbounds() {
                 this.loading();
@@ -203,18 +256,7 @@
                     this.inbounds.push(dbInbound.toInbound());
                     this.dbInbounds.push(dbInbound);
                 }
-            },
-            searchInbounds(key) {
-                if (ObjectUtil.isEmpty(key)) {
-                    this.searchedInbounds = this.dbInbounds.slice();
-                } else {
-                    this.searchedInbounds.splice(0, this.searchedInbounds.length);
-                    this.dbInbounds.forEach(inbound => {
-                        if (ObjectUtil.deepSearch(inbound, key)) {
-                            this.searchedInbounds.push(inbound);
-                        }
-                    });
-                }
+                this.syncHeaderStatus();
             },
             clickAction(action, dbInbound) {
                 switch (action.key) {
@@ -234,8 +276,8 @@
             },
             openAddInbound() {
                 inModal.show({
-                    title: '添加入站',
-                    okText: '添加',
+                    title: '新增入站',
+                    okText: '新增',
                     confirm: async (inbound, dbInbound) => {
                         inModal.loading();
                         await this.addInbound(inbound, dbInbound);
@@ -247,7 +289,7 @@
                 const inbound = dbInbound.toInbound();
                 inModal.show({
                     title: '修改入站',
-                    okText: '修改',
+                    okText: '保存修改',
                     inbound: inbound,
                     dbInbound: dbInbound,
                     confirm: async (inbound, dbInbound) => {
@@ -265,7 +307,6 @@
                     remark: dbInbound.remark,
                     enable: dbInbound.enable,
                     expiryTime: dbInbound.expiryTime,
-
                     listen: inbound.listen,
                     port: inbound.port,
                     protocol: inbound.protocol,
@@ -283,7 +324,6 @@
                     remark: dbInbound.remark,
                     enable: dbInbound.enable,
                     expiryTime: dbInbound.expiryTime,
-
                     listen: inbound.listen,
                     port: inbound.port,
                     protocol: inbound.protocol,
@@ -296,7 +336,7 @@
             resetTraffic(dbInbound) {
                 this.$confirm({
                     title: '重置流量',
-                    content: '确定要重置流量吗?',
+                    content: '确定要重置这个入站的流量吗？',
                     okText: '重置',
                     cancelText: '取消',
                     onOk: () => {
@@ -310,7 +350,7 @@
             delInbound(dbInbound) {
                 this.$confirm({
                     title: '删除入站',
-                    content: '确定要删除入站吗?',
+                    content: '确定要删除这个入站吗？',
                     okText: '删除',
                     cancelText: '取消',
                     onOk: () => this.submit('/xui/inbound/del/' + dbInbound.id),
@@ -333,29 +373,10 @@
                 }
             },
         },
-        watch: {
-            searchKey(value) {
-                this.searchInbounds(value);
-            }
-        },
         mounted() {
             this.getDBInbounds();
         },
-        computed: {
-            total() {
-                let down = 0, up = 0;
-                for (let i = 0; i < this.dbInbounds.length; ++i) {
-                    down += this.dbInbounds[i].down;
-                    up += this.dbInbounds[i].up;
-                }
-                return {
-                    down: down,
-                    up: up,
-                };
-            }
-        },
     });
-
 </script>
 {{template "inboundModal"}}
 {{template "promptModal"}}
