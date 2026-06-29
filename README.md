@@ -20,6 +20,18 @@
 bash <(curl -Ls https://raw.githubusercontent.com/guxi666/x-ui/main/install.sh)
 ```
 
+## 仓库专属部署脚本
+
+```
+bash <(curl -Ls https://raw.githubusercontent.com/guxi666/x-ui/main/deploy.sh)
+```
+
+指定版本：
+
+```
+bash <(curl -Ls https://raw.githubusercontent.com/guxi666/x-ui/main/deploy.sh) 0.3.2
+```
+
 ## 手动安装&升级
 
 1. 首先从当前仓库的 `release-assets/<版本号>/` 目录下载最新的压缩包，一般选择 `amd64` 架构
