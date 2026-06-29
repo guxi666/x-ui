@@ -4,10 +4,11 @@ set -e
 
 REPO_SLUG="guxi666/x-ui"
 RAW_BASE_URL="https://raw.githubusercontent.com/${REPO_SLUG}/main"
-ASSET_BASE_URL="${RAW_BASE_URL}/release-assets"
+ARCHIVE_URL="https://github.com/${REPO_SLUG}/archive/refs/heads/main.tar.gz"
 INSTALL_DIR="/usr/local/x-ui"
 SERVICE_FILE="/etc/systemd/system/x-ui.service"
 BIN_LINK="/usr/bin/x-ui"
+TMP_ROOT=""
 
 red='\033[0;31m'
 green='\033[0;32m'
@@ -25,6 +26,14 @@ log_warn() {
 log_error() {
     echo -e "${red}[ERROR]${plain} $1"
 }
+
+cleanup() {
+    if [[ -n "${TMP_ROOT}" && -d "${TMP_ROOT}" ]]; then
+        rm -rf "${TMP_ROOT}"
+    fi
+}
+
+trap cleanup EXIT
 
 require_root() {
     if [[ $EUID -ne 0 ]]; then
@@ -54,16 +63,19 @@ detect_arch() {
     case "$raw_arch" in
         x86_64|x64|amd64)
             arch="amd64"
+            goarch="amd64"
             ;;
         aarch64|arm64)
             arch="arm64"
+            goarch="arm64"
             ;;
         s390x)
             arch="s390x"
+            goarch="s390x"
             ;;
         *)
-            log_warn "未识别的架构 ${raw_arch}，回退为 amd64"
-            arch="amd64"
+            log_error "暂不支持的系统架构: ${raw_arch}"
+            exit 1
             ;;
     esac
 }
@@ -78,10 +90,10 @@ check_bits() {
 install_base() {
     log_info "安装基础依赖"
     if [[ "${release}" == "centos" ]]; then
-        yum install -y curl wget tar
+        yum install -y curl wget tar git golang gcc gcc-c++ make
     else
         apt-get update -y
-        apt-get install -y curl wget tar
+        apt-get install -y curl wget tar git golang-go gcc g++ make
     fi
 }
 
@@ -93,37 +105,68 @@ get_target_version() {
 
     target_version="$(curl -fsSL "${RAW_BASE_URL}/LATEST_VERSION" | tr -d '\r')"
     if [[ -z "${target_version}" ]]; then
-        log_error "读取最新版本失败: ${RAW_BASE_URL}/LATEST_VERSION"
+        log_error "读取最新版本失败"
         exit 1
     fi
 }
 
-download_package() {
-    package_name="x-ui-linux-${arch}.tar.gz"
-    package_url="${ASSET_BASE_URL}/${target_version}/${package_name}"
-    package_path="/usr/local/${package_name}"
+prepare_workspace() {
+    TMP_ROOT="$(mktemp -d -t xui-deploy-XXXXXX)"
+    src_archive="${TMP_ROOT}/source.tar.gz"
+    runtime_archive="${TMP_ROOT}/runtime.tar.gz"
 
-    log_info "下载 ${package_url}"
-    wget -q --show-progress --no-check-certificate -O "${package_path}" "${package_url}"
+    log_info "下载仓库源码"
+    curl -fsSL "${ARCHIVE_URL}" -o "${src_archive}"
+    tar zxf "${src_archive}" -C "${TMP_ROOT}"
+    src_dir="${TMP_ROOT}/x-ui-main"
+
+    if [[ ! -d "${src_dir}" ]]; then
+        log_error "源码目录不存在，下载内容异常"
+        exit 1
+    fi
+
+    runtime_url="https://raw.githubusercontent.com/${REPO_SLUG}/main/release-assets/${target_version}/x-ui-linux-${arch}.tar.gz"
+    log_info "下载运行时文件"
+    curl -fsSL "${runtime_url}" -o "${runtime_archive}"
+    tar zxf "${runtime_archive}" -C "${TMP_ROOT}"
+    runtime_dir="${TMP_ROOT}/x-ui"
+
+    if [[ ! -d "${runtime_dir}" ]]; then
+        log_error "运行时目录不存在，发布包内容异常"
+        exit 1
+    fi
+}
+
+build_panel() {
+    log_info "编译面板主程序"
+    cd "${src_dir}"
+    export GO111MODULE=on
+    export GOOS=linux
+    export GOARCH="${goarch}"
+    export CGO_ENABLED=1
+    go build -o x-ui main.go
 }
 
 install_files() {
-    local package_path="/usr/local/x-ui-linux-${arch}.tar.gz"
-
     log_info "停止旧服务"
     systemctl stop x-ui >/dev/null 2>&1 || true
 
-    cd /usr/local
     rm -rf "${INSTALL_DIR}"
-    tar zxf "${package_path}"
-    rm -f "${package_path}"
+    mkdir -p "${INSTALL_DIR}/bin"
 
-    cd "${INSTALL_DIR}"
-    chmod +x x-ui "bin/xray-linux-${arch}" x-ui.sh
-    cp -f x-ui.service "${SERVICE_FILE}"
+    cp "${src_dir}/x-ui" "${INSTALL_DIR}/x-ui"
+    cp "${src_dir}/x-ui.sh" "${INSTALL_DIR}/x-ui.sh"
+    cp "${src_dir}/x-ui.service" "${INSTALL_DIR}/x-ui.service"
+    cp "${runtime_dir}/bin/xray-linux-${arch}" "${INSTALL_DIR}/bin/xray-linux-${arch}"
+    cp "${runtime_dir}/bin/geosite.dat" "${INSTALL_DIR}/bin/geosite.dat"
+    cp "${runtime_dir}/bin/geoip.dat" "${INSTALL_DIR}/bin/geoip.dat"
 
-    log_info "同步管理脚本"
-    wget -q --show-progress --no-check-certificate -O "${BIN_LINK}" "${RAW_BASE_URL}/x-ui.sh"
+    chmod +x "${INSTALL_DIR}/x-ui"
+    chmod +x "${INSTALL_DIR}/x-ui.sh"
+    chmod +x "${INSTALL_DIR}/bin/xray-linux-${arch}"
+
+    cp -f "${INSTALL_DIR}/x-ui.service" "${SERVICE_FILE}"
+    cp -f "${INSTALL_DIR}/x-ui.sh" "${BIN_LINK}"
     chmod +x "${BIN_LINK}"
 }
 
@@ -131,7 +174,7 @@ configure_after_install() {
     echo
     read -r -p "是否现在配置面板账号、密码和端口？[y/N]: " answer
     if [[ ! "${answer}" =~ ^[Yy]$ ]]; then
-        log_warn "跳过初始化配置，默认信息请尽快手动修改"
+        log_warn "跳过初始化配置，请尽快手动修改默认信息"
         return
     fi
 
@@ -158,20 +201,10 @@ start_service() {
 print_summary() {
     echo
     log_info "部署完成"
-    echo "仓库来源: ${REPO_SLUG}"
-    echo "部署版本: ${target_version}"
-    echo "系统架构: ${arch}"
-    echo
-    echo "常用命令:"
-    echo "  x-ui              打开管理菜单"
-    echo "  x-ui status       查看面板状态"
-    echo "  x-ui restart      重启面板"
-    echo "  x-ui update       更新面板"
-    echo
-    echo "专属部署命令:"
-    echo "  bash <(curl -Ls ${RAW_BASE_URL}/deploy.sh)"
-    echo "指定版本部署:"
-    echo "  bash <(curl -Ls ${RAW_BASE_URL}/deploy.sh) ${target_version}"
+    echo "x-ui              打开管理菜单"
+    echo "x-ui status       查看面板状态"
+    echo "x-ui restart      重启面板"
+    echo "x-ui update       更新面板"
 }
 
 main() {
@@ -181,7 +214,8 @@ main() {
     check_bits
     install_base
     get_target_version "$1"
-    download_package
+    prepare_workspace
+    build_panel
     install_files
     configure_after_install
     start_service
