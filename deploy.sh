@@ -4,7 +4,6 @@ set -e
 
 REPO_SLUG="guxi666/x-ui"
 RAW_BASE_URL="https://raw.githubusercontent.com/${REPO_SLUG}/main"
-ARCHIVE_URL="https://github.com/${REPO_SLUG}/archive/refs/heads/main.tar.gz"
 INSTALL_DIR="/usr/local/x-ui"
 SERVICE_FILE="/etc/systemd/system/x-ui.service"
 BIN_LINK="/usr/bin/x-ui"
@@ -90,10 +89,20 @@ check_bits() {
 install_base() {
     log_info "安装基础依赖"
     if [[ "${release}" == "centos" ]]; then
-        yum install -y curl wget tar git golang gcc gcc-c++ make
+        yum install -y curl wget tar
     else
         apt-get update -y
-        apt-get install -y curl wget tar git golang-go gcc g++ make
+        apt-get install -y curl wget tar
+    fi
+}
+
+install_build_deps() {
+    log_info "安装编译依赖"
+    if [[ "${release}" == "centos" ]]; then
+        yum install -y git golang gcc gcc-c++ make
+    else
+        apt-get update -y
+        apt-get install -y git golang-go gcc g++ make
     fi
 }
 
@@ -112,18 +121,7 @@ get_target_version() {
 
 prepare_workspace() {
     TMP_ROOT="$(mktemp -d -t xui-deploy-XXXXXX)"
-    src_archive="${TMP_ROOT}/source.tar.gz"
     runtime_archive="${TMP_ROOT}/runtime.tar.gz"
-
-    log_info "下载仓库源码"
-    curl -fsSL "${ARCHIVE_URL}" -o "${src_archive}"
-    tar zxf "${src_archive}" -C "${TMP_ROOT}"
-    src_dir="${TMP_ROOT}/x-ui-main"
-
-    if [[ ! -d "${src_dir}" ]]; then
-        log_error "源码目录不存在，下载内容异常"
-        exit 1
-    fi
 
     runtime_url="https://raw.githubusercontent.com/${REPO_SLUG}/main/release-assets/${target_version}/x-ui-linux-${arch}.tar.gz"
     log_info "下载运行时文件"
@@ -137,14 +135,37 @@ prepare_workspace() {
     fi
 }
 
-build_panel() {
+fetch_panel_binary() {
+    local binary_url="${RAW_BASE_URL}/release-assets/panel/x-ui-linux-${arch}"
+    local binary_path="${TMP_ROOT}/x-ui-linux-${arch}"
+
+    if curl -fsSL "${binary_url}" -o "${binary_path}"; then
+        log_info "使用预编译面板二进制"
+        panel_binary="${binary_path}"
+        return
+    fi
+
+    log_warn "未找到预编译面板二进制，回退到源码编译"
+    install_build_deps
+    src_archive="${TMP_ROOT}/source.tar.gz"
+    src_url="https://github.com/${REPO_SLUG}/archive/refs/heads/main.tar.gz"
+    curl -fsSL "${src_url}" -o "${src_archive}"
+    tar zxf "${src_archive}" -C "${TMP_ROOT}"
+    src_dir="${TMP_ROOT}/x-ui-main"
+
+    if [[ ! -d "${src_dir}" ]]; then
+        log_error "源码目录不存在，下载内容异常"
+        exit 1
+    fi
+
     log_info "编译面板主程序"
     cd "${src_dir}"
     export GO111MODULE=on
     export GOOS=linux
     export GOARCH="${goarch}"
     export CGO_ENABLED=1
-    go build -o x-ui main.go
+    go build -o "${binary_path}" main.go
+    panel_binary="${binary_path}"
 }
 
 install_files() {
@@ -154,9 +175,9 @@ install_files() {
     rm -rf "${INSTALL_DIR}"
     mkdir -p "${INSTALL_DIR}/bin"
 
-    cp "${src_dir}/x-ui" "${INSTALL_DIR}/x-ui"
-    cp "${src_dir}/x-ui.sh" "${INSTALL_DIR}/x-ui.sh"
-    cp "${src_dir}/x-ui.service" "${INSTALL_DIR}/x-ui.service"
+    cp "${panel_binary}" "${INSTALL_DIR}/x-ui"
+    curl -fsSL "${RAW_BASE_URL}/x-ui.sh" -o "${INSTALL_DIR}/x-ui.sh"
+    curl -fsSL "${RAW_BASE_URL}/x-ui.service" -o "${INSTALL_DIR}/x-ui.service"
     cp "${runtime_dir}/bin/xray-linux-${arch}" "${INSTALL_DIR}/bin/xray-linux-${arch}"
     cp "${runtime_dir}/bin/geosite.dat" "${INSTALL_DIR}/bin/geosite.dat"
     cp "${runtime_dir}/bin/geoip.dat" "${INSTALL_DIR}/bin/geoip.dat"
@@ -215,7 +236,7 @@ main() {
     install_base
     get_target_version "$1"
     prepare_workspace
-    build_panel
+    fetch_panel_binary
     install_files
     configure_after_install
     start_service

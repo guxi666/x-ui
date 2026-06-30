@@ -1,0 +1,52 @@
+name: Build Deploy Binaries
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'release-assets/panel/**'
+      - 'README.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-commit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install cross compilers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-s390x-linux-gnu
+
+      - name: Build panel binaries
+        run: |
+          mkdir -p release-assets/panel
+          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o release-assets/panel/x-ui-linux-amd64 main.go
+          CGO_ENABLED=1 GOOS=linux GOARCH=arm64 CC=aarch64-linux-gnu-gcc go build -o release-assets/panel/x-ui-linux-arm64 main.go
+          CGO_ENABLED=1 GOOS=linux GOARCH=s390x CC=s390x-linux-gnu-gcc go build -o release-assets/panel/x-ui-linux-s390x main.go
+
+      - name: Commit binaries
+        run: |
+          if git diff --quiet -- release-assets/panel; then
+            echo "No binary changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add release-assets/panel
+          git commit -m "Update deploy panel binaries"
+          git push
