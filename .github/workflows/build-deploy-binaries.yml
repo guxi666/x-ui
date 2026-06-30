@@ -41,7 +41,7 @@ jobs:
 
       - name: Commit binaries
         run: |
-          if git diff --quiet -- release-assets/panel; then
+          if [[ -z "$(git status --porcelain release-assets/panel)" ]]; then
             echo "No binary changes"
             exit 0
           fi

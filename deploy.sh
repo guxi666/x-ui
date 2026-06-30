@@ -8,6 +8,7 @@ INSTALL_DIR="/usr/local/x-ui"
 SERVICE_FILE="/etc/systemd/system/x-ui.service"
 BIN_LINK="/usr/bin/x-ui"
 TMP_ROOT=""
+need_runtime_download="true"
 
 red='\033[0;31m'
 green='\033[0;32m'
@@ -87,12 +88,22 @@ check_bits() {
 }
 
 install_base() {
-    log_info "安装基础依赖"
+    local missing=()
+    command -v curl >/dev/null 2>&1 || missing+=("curl")
+    command -v wget >/dev/null 2>&1 || missing+=("wget")
+    command -v tar >/dev/null 2>&1 || missing+=("tar")
+
+    if [[ ${#missing[@]} -eq 0 ]]; then
+        log_info "基础依赖已存在，跳过安装"
+        return
+    fi
+
+    log_info "安装基础依赖: ${missing[*]}"
     if [[ "${release}" == "centos" ]]; then
-        yum install -y curl wget tar
+        yum install -y "${missing[@]}"
     else
         apt-get update -y
-        apt-get install -y curl wget tar
+        apt-get install -y "${missing[@]}"
     fi
 }
 
@@ -121,8 +132,13 @@ get_target_version() {
 
 prepare_workspace() {
     TMP_ROOT="$(mktemp -d -t xui-deploy-XXXXXX)"
-    runtime_archive="${TMP_ROOT}/runtime.tar.gz"
+    if [[ -x "${INSTALL_DIR}/bin/xray-linux-${arch}" && -f "${INSTALL_DIR}/bin/geosite.dat" && -f "${INSTALL_DIR}/bin/geoip.dat" ]]; then
+        log_info "复用当前机器已有的 xray 运行文件"
+        need_runtime_download="false"
+        return
+    fi
 
+    runtime_archive="${TMP_ROOT}/runtime.tar.gz"
     runtime_url="https://raw.githubusercontent.com/${REPO_SLUG}/main/release-assets/${target_version}/x-ui-linux-${arch}.tar.gz"
     log_info "下载运行时文件"
     curl -fsSL "${runtime_url}" -o "${runtime_archive}"
@@ -172,15 +188,27 @@ install_files() {
     log_info "停止旧服务"
     systemctl stop x-ui >/dev/null 2>&1 || true
 
+    local backup_bin_dir=""
+    if [[ "${need_runtime_download}" == "false" && -d "${INSTALL_DIR}/bin" ]]; then
+        backup_bin_dir="${TMP_ROOT}/bin-backup"
+        mkdir -p "${backup_bin_dir}"
+        cp -a "${INSTALL_DIR}/bin/." "${backup_bin_dir}/"
+    fi
+
     rm -rf "${INSTALL_DIR}"
     mkdir -p "${INSTALL_DIR}/bin"
 
     cp "${panel_binary}" "${INSTALL_DIR}/x-ui"
     curl -fsSL "${RAW_BASE_URL}/x-ui.sh" -o "${INSTALL_DIR}/x-ui.sh"
     curl -fsSL "${RAW_BASE_URL}/x-ui.service" -o "${INSTALL_DIR}/x-ui.service"
-    cp "${runtime_dir}/bin/xray-linux-${arch}" "${INSTALL_DIR}/bin/xray-linux-${arch}"
-    cp "${runtime_dir}/bin/geosite.dat" "${INSTALL_DIR}/bin/geosite.dat"
-    cp "${runtime_dir}/bin/geoip.dat" "${INSTALL_DIR}/bin/geoip.dat"
+
+    if [[ "${need_runtime_download}" == "true" ]]; then
+        cp "${runtime_dir}/bin/xray-linux-${arch}" "${INSTALL_DIR}/bin/xray-linux-${arch}"
+        cp "${runtime_dir}/bin/geosite.dat" "${INSTALL_DIR}/bin/geosite.dat"
+        cp "${runtime_dir}/bin/geoip.dat" "${INSTALL_DIR}/bin/geoip.dat"
+    else
+        cp -a "${backup_bin_dir}/." "${INSTALL_DIR}/bin/"
+    fi
 
     chmod +x "${INSTALL_DIR}/x-ui"
     chmod +x "${INSTALL_DIR}/x-ui.sh"
